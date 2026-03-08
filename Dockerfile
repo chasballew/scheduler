@@ -5,8 +5,7 @@ COPY package*.json ./
 RUN npm ci --production
 COPY . .
 WORKDIR /app/frontend
-RUN npm ci && npm run build
-RUN cp -r dist/* ../public/
+RUN npm ci && npm run build && mv dist ../public
 WORKDIR /app
 EXPOSE 3000
 CMD ["node", "src/index.js"]
