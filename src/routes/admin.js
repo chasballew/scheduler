@@ -112,6 +112,18 @@ apiRouter.get('/export', (req, res) => {
   res.send(header + csv);
 });
 
+// GET /api/admin/log
+apiRouter.get('/log', (req, res) => {
+  const rows = db.prepare(`
+    SELECT b.id, b.name, b.email, b.status, b.waitlist_position, b.created_at, b.updated_at,
+           s.day, s.start_time, s.end_time
+    FROM bookings b
+    JOIN slots s ON s.id = b.slot_id
+    ORDER BY b.updated_at DESC, b.created_at DESC
+  `).all();
+  res.json(rows);
+});
+
 // POST /admin/login (no auth required)
 function login(req, res) {
   const { password } = req.body;

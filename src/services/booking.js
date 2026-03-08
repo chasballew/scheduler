@@ -18,6 +18,9 @@ function bookSlot({ slotId, name, email }) {
     ).get(slotId, email);
     if (existing) throw Object.assign(new Error('Already booked for this slot'), { code: 'DUPLICATE' });
 
+    // Remove any cancelled row for this slot+email so the INSERT doesn't hit the UNIQUE constraint
+    db.prepare("DELETE FROM bookings WHERE slot_id = ? AND email = ? AND status = 'cancelled'").run(slotId, email);
+
     const { count } = db.prepare(
       "SELECT COUNT(*) as count FROM bookings WHERE slot_id = ? AND status = 'confirmed'"
     ).get(slotId);

@@ -102,6 +102,8 @@ function SlotRow({ slot, onCancel }) {
 
 function Dashboard() {
   const [data, setData] = useState({});
+  const [log, setLog] = useState([]);
+  const [tab, setTab] = useState('bookings');
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
   const [addModal, setAddModal] = useState(false);
@@ -109,9 +111,13 @@ function Dashboard() {
 
   async function load() {
     try {
-      const res = await fetch('/api/admin/bookings');
-      if (res.status === 401) { window.location.reload(); return; }
-      setData(await res.json());
+      const [bookingsRes, logRes] = await Promise.all([
+        fetch('/api/admin/bookings'),
+        fetch('/api/admin/log'),
+      ]);
+      if (bookingsRes.status === 401) { window.location.reload(); return; }
+      setData(await bookingsRes.json());
+      setLog(await logRes.json());
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   }
@@ -224,17 +230,67 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Day columns */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-        {['2026-06-16', '2026-06-17'].map(day => (
-          <div key={day}>
-            <h2 style={{ borderBottom: '2px solid #4F46E5', paddingBottom: 8, marginBottom: 14 }}>{DAY_LABELS[day]}</h2>
-            {(data[day] || []).map(slot => (
-              <SlotRow key={slot.id} slot={slot} onCancel={handleCancel} />
-            ))}
-          </div>
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 0, marginBottom: 20, borderBottom: '2px solid #e5e7eb' }}>
+        {['bookings', 'log'].map(t => (
+          <button key={t} onClick={() => setTab(t)} style={{
+            padding: '8px 20px', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: tab === t ? 'bold' : 'normal',
+            background: 'none', borderBottom: tab === t ? '2px solid #4F46E5' : '2px solid transparent',
+            color: tab === t ? '#4F46E5' : '#555', marginBottom: -2,
+          }}>
+            {t === 'bookings' ? 'Bookings' : 'Activity Log'}
+          </button>
         ))}
       </div>
+
+      {tab === 'bookings' && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+          {['2026-06-16', '2026-06-17'].map(day => (
+            <div key={day}>
+              <h2 style={{ borderBottom: '2px solid #4F46E5', paddingBottom: 8, marginBottom: 14 }}>{DAY_LABELS[day]}</h2>
+              {(data[day] || []).map(slot => (
+                <SlotRow key={slot.id} slot={slot} onCancel={handleCancel} />
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'log' && (
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: '#f9fafb', textAlign: 'left' }}>
+              {['Time', 'Name', 'Email', 'Slot', 'Status', 'Booked at', 'Updated at'].map(h => (
+                <th key={h} style={{ padding: '8px 12px', borderBottom: '1px solid #e5e7eb', fontWeight: 600, color: '#374151' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {log.map(row => {
+              const statusColors = { confirmed: ['#dcfce7','#166534'], waitlisted: ['#fef3c7','#92400e'], cancelled: ['#f3f4f6','#6b7280'] };
+              const [bg, fg] = statusColors[row.status] || ['#f3f4f6','#333'];
+              return (
+                <tr key={row.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={{ padding: '8px 12px', color: '#555' }}>{row.updated_at}</td>
+                  <td style={{ padding: '8px 12px', fontWeight: 500 }}>{row.name}</td>
+                  <td style={{ padding: '8px 12px', color: '#555' }}>{row.email}</td>
+                  <td style={{ padding: '8px 12px' }}>{DAY_LABELS[row.day]}<br /><span style={{ color: '#555' }}>{row.start_time} – {row.end_time}</span></td>
+                  <td style={{ padding: '8px 12px' }}>
+                    <span style={{ padding: '2px 8px', borderRadius: 12, background: bg, color: fg, fontSize: 12 }}>
+                      {row.status}{row.status === 'waitlisted' ? ` #${row.waitlist_position}` : ''}
+                    </span>
+                  </td>
+                  <td style={{ padding: '8px 12px', color: '#555' }}>{row.created_at}</td>
+                  <td style={{ padding: '8px 12px', color: '#555' }}>{row.updated_at !== row.created_at ? row.updated_at : '—'}</td>
+                </tr>
+              );
+            })}
+            {log.length === 0 && (
+              <tr><td colSpan={7} style={{ padding: 24, textAlign: 'center', color: '#aaa' }}>No activity yet</td></tr>
+            )}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
